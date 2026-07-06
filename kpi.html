@@ -1,0 +1,776 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ALSC KPI — Operations Monitor · Jun 2026</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0a1119;
+    --bg-2:#0e1826;
+    --panel:#111f30;
+    --panel-2:#16273c;
+    --line:#1f3247;
+    --line-soft:#182739;
+    --txt:#e6edf5;
+    --txt-mid:#9db0c6;
+    --txt-dim:#607590;
+    --cyan:#33d6d0;
+    --cyan-glow:rgba(51,214,208,.16);
+    --amber:#f6b13c;
+    --emerald:#3ddc97;
+    --rose:#fb6d84;
+    --violet:#8f9bff;
+    --grid:rgba(120,150,180,.08);
+    --shadow:0 18px 40px -18px rgba(0,0,0,.7);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{-webkit-font-smoothing:antialiased}
+  body{
+    font-family:'IBM Plex Sans',system-ui,sans-serif;
+    background:
+      radial-gradient(1200px 600px at 12% -10%,rgba(51,214,208,.06),transparent 60%),
+      radial-gradient(1000px 500px at 100% 0%,rgba(143,155,255,.05),transparent 55%),
+      var(--bg);
+    color:var(--txt);
+    min-height:100vh;
+    padding:28px clamp(16px,4vw,48px) 56px;
+    line-height:1.45;
+  }
+  .mono{font-family:'IBM Plex Mono',monospace;font-variant-numeric:tabular-nums}
+
+  /* ---------- header ---------- */
+  header.topbar{
+    display:flex;align-items:flex-end;justify-content:space-between;
+    gap:20px;flex-wrap:wrap;
+    padding-bottom:18px;margin-bottom:26px;
+    border-bottom:1px solid var(--line);
+  }
+  .brand{display:flex;align-items:center;gap:14px}
+  .brand .glyph{
+    width:38px;height:38px;flex:none;border-radius:9px;
+    background:linear-gradient(145deg,#12283a,#0c1622);
+    border:1px solid var(--line);
+    display:grid;place-items:center;position:relative;overflow:hidden;
+  }
+  .brand .glyph svg{width:22px;height:22px}
+  .brand .titles h1{
+    font-size:15px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;
+  }
+  .brand .titles p{
+    font-size:11.5px;color:var(--txt-dim);letter-spacing:.16em;text-transform:uppercase;margin-top:2px;
+  }
+  .period{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+  .period .live{
+    display:flex;align-items:center;gap:7px;font-size:11px;letter-spacing:.14em;
+    text-transform:uppercase;color:var(--txt-mid);
+  }
+  .period .dot{width:7px;height:7px;border-radius:50%;background:var(--emerald);
+    box-shadow:0 0 0 0 rgba(61,220,151,.5);animation:pulse 2.4s infinite}
+  @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(61,220,151,.45)}70%{box-shadow:0 0 0 7px rgba(61,220,151,0)}100%{box-shadow:0 0 0 0 rgba(61,220,151,0)}}
+  .period .chip{
+    padding:9px 15px;border:1px solid var(--line);border-radius:9px;
+    background:var(--panel);font-size:12px;letter-spacing:.1em;text-transform:uppercase;
+    color:var(--txt);
+  }
+  .period .chip b{color:var(--cyan);font-weight:600}
+  .monthsel{
+    display:flex;gap:3px;padding:3px;border:1px solid var(--line);
+    border-radius:10px;background:var(--bg-2);
+  }
+  .monthsel button{
+    font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:.04em;
+    padding:6px 12px;border:none;border-radius:7px;background:transparent;
+    color:var(--txt-mid);cursor:pointer;transition:background .15s,color .15s;
+  }
+  .monthsel button:hover{color:var(--txt)}
+  .monthsel button.on{background:var(--cyan);color:#06222a;font-weight:600}
+  .inputbtn{
+    font-family:inherit;font-size:12px;font-weight:600;letter-spacing:.04em;
+    padding:9px 16px;border-radius:9px;border:1px solid var(--cyan);
+    background:rgba(51,214,208,.12);color:var(--cyan);cursor:pointer;transition:.15s;
+  }
+  .inputbtn:hover{background:rgba(51,214,208,.2)}
+  #srcDot{background:var(--txt-dim)}
+  #srcDot.online{background:var(--emerald);animation:pulse 2.4s infinite}
+
+  /* modal */
+  .modal-overlay{position:fixed;inset:0;background:rgba(4,8,14,.72);backdrop-filter:blur(3px);
+    display:flex;align-items:center;justify-content:center;z-index:50;padding:20px}
+  .modal-overlay[hidden]{display:none}
+  .modal{width:min(440px,100%);background:linear-gradient(180deg,var(--panel),var(--bg-2));
+    border:1px solid var(--line);border-radius:16px;box-shadow:0 30px 80px -20px rgba(0,0,0,.9);overflow:hidden}
+  .modal-head{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid var(--line-soft)}
+  .modal-head h3{font-size:14px;font-weight:600;letter-spacing:.02em}
+  .modal-x{background:none;border:none;color:var(--txt-mid);font-size:22px;line-height:1;cursor:pointer;padding:0 4px}
+  .modal-x:hover{color:var(--txt)}
+  .modal-body{padding:18px 20px;max-height:60vh;overflow:auto}
+  .fld{display:flex;flex-direction:column;gap:6px;margin-bottom:14px}
+  .fld>span{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--txt-dim)}
+  .fld select,.fgrid input{font-family:'IBM Plex Mono',monospace;font-size:13px;color:var(--txt);
+    background:var(--bg-2);border:1px solid var(--line);border-radius:8px;padding:9px 11px;width:100%}
+  .fld select:focus,.fgrid input:focus{outline:none;border-color:var(--cyan)}
+  .fgrid{display:flex;flex-direction:column;gap:10px}
+  .fgrid .row{display:flex;align-items:center;gap:10px}
+  .fgrid .row label{flex:1;font-size:12.5px;color:var(--txt-mid);display:flex;align-items:center;gap:8px}
+  .fgrid .row label i{width:9px;height:9px;border-radius:2px;flex:none}
+  .fgrid .row input{width:96px;text-align:right;flex:none}
+  .fnote{margin-top:12px;font-size:11.5px;color:var(--txt-dim);line-height:1.5}
+  .modal-foot{display:flex;justify-content:flex-end;gap:10px;padding:14px 20px;border-top:1px solid var(--line-soft)}
+  .btn-ghost{font-family:inherit;font-size:12.5px;padding:9px 16px;border-radius:8px;border:1px solid var(--line);
+    background:transparent;color:var(--txt-mid);cursor:pointer}
+  .btn-ghost:hover{color:var(--txt);border-color:#2b445e}
+  .btn-go{font-family:inherit;font-size:12.5px;font-weight:600;padding:9px 18px;border-radius:8px;border:none;
+    background:var(--cyan);color:#06222a;cursor:pointer}
+  .btn-go:hover{filter:brightness(1.08)}
+  .btn-go:disabled{opacity:.5;cursor:default}
+
+  /* ---------- KPI tiles ---------- */
+  .tiles{
+    display:grid;gap:14px;margin-bottom:26px;
+    grid-template-columns:repeat(3,1fr);
+  }
+  .tile{
+    position:relative;text-align:left;cursor:pointer;
+    background:linear-gradient(180deg,var(--panel),var(--bg-2));
+    border:1px solid var(--line);border-radius:14px;
+    padding:16px 16px 12px;overflow:hidden;
+    transition:border-color .18s,transform .18s,box-shadow .18s;
+    font-family:inherit;color:inherit;
+  }
+  .tile::before{
+    content:"";position:absolute;left:0;top:0;bottom:0;width:3px;
+    background:var(--tile-accent,var(--cyan));opacity:.35;transition:opacity .18s;
+  }
+  .tile:hover{transform:translateY(-2px);border-color:#2b445e}
+  .tile.active{
+    border-color:var(--tile-accent,var(--cyan));
+    box-shadow:0 0 0 1px var(--tile-accent,var(--cyan)),0 18px 40px -20px rgba(0,0,0,.8);
+  }
+  .tile.active::before{opacity:1}
+  .tile .label{
+    font-size:11px;letter-spacing:.06em;color:var(--txt-mid);text-transform:uppercase;
+    min-height:28px;display:flex;align-items:flex-start;
+  }
+  .tile .val{
+    display:flex;align-items:baseline;gap:6px;margin:8px 0 2px;
+  }
+  .tile .val .num{font-size:30px;font-weight:600;letter-spacing:-.01em;color:var(--txt)}
+  .tile .val .unit{font-size:11px;color:var(--txt-dim);letter-spacing:.05em}
+  .tile .delta{
+    display:inline-flex;align-items:center;gap:5px;font-size:11.5px;
+    padding:2px 0;font-weight:500;
+  }
+  .tile .delta.up{color:var(--emerald)}
+  .tile .delta.down{color:var(--rose)}
+  .tile .delta.flat{color:var(--txt-dim)}
+  .tile .delta .vs{color:var(--txt-dim);font-weight:400}
+  .tile .spark{margin-top:10px;height:34px;width:100%;display:block}
+
+  /* composite (Total Well) tile */
+  .tile .stackbar{
+    display:flex;height:9px;border-radius:5px;overflow:hidden;margin-top:12px;
+    background:var(--line-soft);
+  }
+  .tile .stackbar span{height:100%;transition:width .4s ease}
+  .tile .breakdown{
+    display:flex;justify-content:space-between;gap:8px;margin-top:11px;
+  }
+  .tile .breakdown .bk{
+    display:flex;align-items:center;gap:7px;font-size:12px;color:var(--txt-mid);
+  }
+  .tile .breakdown .bk i{width:9px;height:9px;border-radius:2px;flex:none;display:inline-block}
+  .tile .breakdown .bk b{font-family:'IBM Plex Mono',monospace;color:var(--txt);font-weight:600}
+  .tile .breakdown .bk .u{font-size:10px;color:var(--txt-dim)}
+
+  /* ---------- main grid ---------- */
+  .grid{
+    display:grid;gap:16px;
+    grid-template-columns:1.9fr 1fr;
+    align-items:start;
+  }
+  .card{
+    background:linear-gradient(180deg,var(--panel),var(--bg-2));
+    border:1px solid var(--line);border-radius:16px;
+    box-shadow:var(--shadow);
+  }
+  .card .head{
+    display:flex;align-items:center;justify-content:space-between;gap:12px;
+    padding:16px 20px;border-bottom:1px solid var(--line-soft);flex-wrap:wrap;
+  }
+  .card .head .h-l{display:flex;align-items:center;gap:11px}
+  .card .head .swatch{width:11px;height:11px;border-radius:3px;background:var(--cyan)}
+  .card .head h2{font-size:13.5px;font-weight:600;letter-spacing:.02em}
+  .card .head .sub{font-size:11px;color:var(--txt-dim);letter-spacing:.08em;text-transform:uppercase}
+  .card .head .stat-inline{display:flex;gap:20px}
+  .card .head .stat-inline .s{text-align:right}
+  .card .head .stat-inline .s .k{font-size:10px;color:var(--txt-dim);letter-spacing:.1em;text-transform:uppercase}
+  .card .head .stat-inline .s .v{font-size:14px;font-weight:600;color:var(--txt)}
+
+  /* chart */
+  .chartwrap{padding:14px 12px 6px;position:relative}
+  #chart{width:100%;height:300px;display:block;overflow:visible}
+  .tip{
+    position:absolute;pointer-events:none;opacity:0;transition:opacity .12s;
+    background:#0a141f;border:1px solid var(--line);border-radius:9px;
+    padding:8px 11px;font-size:12px;box-shadow:0 10px 30px -10px rgba(0,0,0,.8);
+    transform:translate(-50%,-115%);white-space:nowrap;z-index:5;
+  }
+  .tip .t-m{color:var(--txt-dim);font-size:10px;letter-spacing:.1em;text-transform:uppercase}
+  .tip .t-v{font-weight:600;font-size:15px}
+
+  /* summary table */
+  .sumtable{width:100%;border-collapse:collapse;font-size:12.5px}
+  .sumtable th,.sumtable td{padding:11px 20px;text-align:right}
+  .sumtable th{
+    font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--txt-dim);
+    font-weight:500;border-bottom:1px solid var(--line-soft);
+  }
+  .sumtable th:first-child,.sumtable td:first-child{text-align:left}
+  .sumtable tbody tr{border-bottom:1px solid var(--line-soft);cursor:pointer;transition:background .15s}
+  .sumtable tbody tr:last-child{border-bottom:none}
+  .sumtable tbody tr:hover{background:rgba(51,214,208,.05)}
+  .sumtable tbody tr.active{background:rgba(51,214,208,.08)}
+  .sumtable td .name{display:flex;align-items:center;gap:9px;color:var(--txt)}
+  .sumtable td .cdot{width:9px;height:9px;border-radius:2px;flex:none}
+  .sumtable td.peak{color:var(--txt-mid)}
+  .sumtable .jun{color:var(--cyan);font-weight:600}
+
+  footer{
+    margin-top:28px;padding-top:16px;border-top:1px solid var(--line);
+    display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px;
+    font-size:11px;color:var(--txt-dim);letter-spacing:.06em;
+  }
+
+  @media(max-width:1080px){
+    .tiles{grid-template-columns:repeat(3,1fr)}
+    .grid{grid-template-columns:1fr}
+  }
+  @media(max-width:620px){
+    .tiles{grid-template-columns:repeat(2,1fr)}
+    .card .head .stat-inline{display:none}
+    .tile .val .num{font-size:26px}
+  }
+  @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <div class="glyph">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#33d6d0" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M3 17l4-6 4 3 5-8 5 6"/><path d="M3 21h18" opacity=".4"/>
+      </svg>
+    </div>
+    <div class="titles">
+      <h1>ALSC · KPI Operations Monitor</h1>
+      <p>Artificial Lift Solutions — Performance Channels</p>
+    </div>
+  </div>
+  <div class="period">
+    <span class="live"><span class="dot" id="srcDot"></span><span id="srcLabel">Local data</span></span>
+    <span class="chip">Period · <b>2026</b></span>
+    <div class="monthsel" id="monthsel"></div>
+    <button class="inputbtn" id="openForm">+ Input KPI</button>
+  </div>
+</header>
+
+<div class="modal-overlay" id="modal" hidden>
+  <div class="modal">
+    <div class="modal-head">
+      <h3>Input / Update KPI</h3>
+      <button class="modal-x" id="closeForm" aria-label="Tutup">×</button>
+    </div>
+    <div class="modal-body">
+      <label class="fld">
+        <span>Bulan</span>
+        <select id="fMonth"></select>
+      </label>
+      <div class="fgrid" id="fFields"></div>
+      <p class="fnote" id="fNote"></p>
+    </div>
+    <div class="modal-foot">
+      <button class="btn-ghost" id="cancelForm">Batal</button>
+      <button class="btn-go" id="saveForm">Simpan</button>
+    </div>
+  </div>
+</div>
+
+<section class="tiles" id="tiles"></section>
+
+<section class="grid">
+  <div class="card">
+    <div class="head">
+      <div class="h-l">
+        <span class="swatch" id="chSwatch"></span>
+        <div>
+          <h2 id="chTitle">Remote Operation</h2>
+          <div class="sub" id="chUnit">ops · 6-month channel</div>
+        </div>
+      </div>
+      <div class="stat-inline">
+        <div class="s"><div class="k">Avg</div><div class="v mono" id="chAvg">—</div></div>
+        <div class="s"><div class="k">Peak</div><div class="v mono" id="chPeak">—</div></div>
+        <div class="s"><div class="k">YTD</div><div class="v mono" id="chYtd">—</div></div>
+      </div>
+    </div>
+    <div class="chartwrap">
+      <svg id="chart" viewBox="0 0 720 300" preserveAspectRatio="none"></svg>
+      <div class="tip" id="tip"><div class="t-m" id="tipM"></div><div class="t-v mono" id="tipV"></div></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="head">
+      <div class="h-l"><span class="swatch" style="background:var(--violet)"></span>
+        <div><h2>6-Month Summary</h2><div class="sub">totals · trend · peak month</div></div>
+      </div>
+    </div>
+    <table class="sumtable">
+      <thead><tr><th>Metric</th><th id="sumMonthHdr">Jun</th><th>Avg</th><th>YTD</th><th>Peak</th></tr></thead>
+      <tbody id="sumBody"></tbody>
+    </table>
+  </div>
+</section>
+
+<footer>
+  <span>Source · ALSC KPI JuN 2026.xlsx</span>
+  <span id="genStamp"></span>
+</footer>
+
+<script>
+const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun'];
+const WELLS = {
+  avalon: [12,16,59,61,69,75],
+  zedi:   [98,96,55,55,47,43],
+};
+const WELL_TOTAL = WELLS.avalon.map((a,i)=>a+WELLS.zedi[i]); // 110,112,114,116,116,118
+
+const DATA = [
+  {name:'Remote Operation',          unit:'ops',     values:[43,30,29,52,28,40], accent:'#33d6d0', sheet:'Remote Operation'},
+  {name:'Quest Reporting',           unit:'reports', values:[12,7,6,5,5,5],      accent:'#8f9bff', sheet:'Quest Reporting'},
+  {name:'Client Observation Report', unit:'reports', values:[3,3,3,2,4,12],      accent:'#f6b13c', sheet:'Client Observation Report'},
+  {name:'Mileage',                   unit:'km',      values:[410,280,264,448,233,402], accent:'#3ddc97', sheet:'Milleage'},
+  {name:'Hi-Priority Wells Monitoring',unit:'wells', values:[4,4,4,4,6,5],       accent:'#fb6d84', sheet:'Number Of Hi Priority Wells Monitoring'},
+  {name:'Total Well',                unit:'wells',   values:WELL_TOTAL,          accent:'#5ec8ff',
+    composite:true,
+    sub:[
+      {name:'Avalon', values:WELLS.avalon, color:'#3b9dff', sheet:'Avalon'},
+      {name:'Zedi',   values:WELLS.zedi,   color:'#c77dff', sheet:'Zedi'},
+    ]},
+];
+
+const sum = a => a.reduce((x,y)=>x+y,0);
+const avg = a => sum(a)/a.length;
+const fmt = n => Number.isInteger(n)?n.toLocaleString('en-US'):n.toLocaleString('en-US',{maximumFractionDigits:1});
+
+let active = 0;
+let focus = 5;            // selected month index (default June)
+
+/* ====== BACKEND CONFIG ======
+   Tempel URL Web App Google Apps Script (…/exec) di sini.
+   Biarkan '' untuk mode lokal (form tetap jalan, tapi tidak tersimpan permanen). */
+const API_URL = 'https://script.google.com/macros/s/AKfycbw_2uJW4sE6nyIeZlIl7z9Q3xAQzKCP6Vir5GtQTLOfKK6lxGu4PMa9ZHQq1SVV9kHOaA/exec';
+const MONTH_FULL_ALL = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+const MONTH_SHORT_ALL = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const MONTHS_FULL = ['January','February','March','April','May','June'];
+
+/* ---- month selector ---- */
+function renderMonthSel(){
+  const el=document.getElementById('monthsel');
+  el.innerHTML=MONTHS.map((m,i)=>
+    `<button data-m="${i}" class="${i===focus?'on':''}">${m}</button>`).join('');
+  el.querySelectorAll('button').forEach(b=>b.addEventListener('click',()=>setFocus(+b.dataset.m)));
+}
+function setFocus(i){
+  focus=i;
+  renderMonthSel();
+  renderTiles();
+  renderChart();
+  renderSummary();
+}
+
+/* ---- sparkline ---- */
+function sparkline(vals, accent, hi){
+  const w=180,h=34,pad=3;
+  const mn=Math.min(...vals),mx=Math.max(...vals),rng=(mx-mn)||1;
+  const x=i=>pad+i*(w-2*pad)/(vals.length-1);
+  const y=v=>h-pad-((v-mn)/rng)*(h-2*pad);
+  const pts=vals.map((v,i)=>`${x(i)},${y(v)}`).join(' ');
+  const area=`${pad},${h} ${pts} ${w-pad},${h}`;
+  const gid='g'+Math.random().toString(36).slice(2,7);
+  return `<svg class="spark" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none">
+    <defs><linearGradient id="${gid}" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="${accent}" stop-opacity=".28"/>
+      <stop offset="1" stop-color="${accent}" stop-opacity="0"/></linearGradient></defs>
+    <polygon points="${area}" fill="url(#${gid})"/>
+    <polyline points="${pts}" fill="none" stroke="${accent}" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"/>
+    <circle cx="${x(hi)}" cy="${y(vals[hi])}" r="3" fill="${accent}"/>
+  </svg>`;
+}
+
+/* ---- composite (Total Well) tile body ---- */
+function compositeBody(d, focus){
+  const a=d.sub[0], z=d.sub[1];
+  const av=a.values[focus], zv=z.values[focus], tot=av+zv||1;
+  const ap=Math.round(av/tot*100), zp=100-ap;
+  return `<div class="stackbar" title="${ap}% ${a.name} / ${zp}% ${z.name}">
+      <span style="width:${ap}%;background:${a.color}"></span>
+      <span style="width:${zp}%;background:${z.color}"></span>
+    </div>
+    <div class="breakdown">
+      <span class="bk"><i style="background:${a.color}"></i>${a.name} <b>${fmt(av)}</b><span class="u">${ap}%</span></span>
+      <span class="bk"><i style="background:${z.color}"></i>${z.name} <b>${fmt(zv)}</b><span class="u">${zp}%</span></span>
+    </div>`;
+}
+
+/* ---- KPI tiles ---- */
+function renderTiles(){
+  const el=document.getElementById('tiles');
+  const prevName = focus>0 ? MONTHS[focus-1] : null;
+  el.innerHTML = DATA.map((d,i)=>{
+    const cur=d.values[focus];
+    const prev = focus>0 ? d.values[focus-1] : null;
+    let deltaHtml;
+    if(prev===null){
+      deltaHtml=`<div class="delta flat">— <span class="vs">start of period</span></div>`;
+    }else{
+      const diff=cur-prev;
+      const pct = prev===0 ? (diff===0?0:100) : Math.round(diff/prev*100);
+      const cls = diff>0?'up':diff<0?'down':'flat';
+      const arrow = diff>0?'▲':diff<0?'▼':'—';
+      const sign = diff>0?'+':'';
+      deltaHtml=`<div class="delta ${cls}">${arrow} ${sign}${fmt(diff)} <span class="vs">(${sign}${pct}% vs ${prevName})</span></div>`;
+    }
+    return `<button class="tile${i===active?' active':''}" data-i="${i}" style="--tile-accent:${d.accent}">
+      <div class="label">${d.name}</div>
+      <div class="val"><span class="num mono">${fmt(cur)}</span><span class="unit">${d.unit}</span></div>
+      ${deltaHtml}
+      ${d.composite ? compositeBody(d,focus) : sparkline(d.values,d.accent,focus)}
+    </button>`;
+  }).join('');
+  el.querySelectorAll('.tile').forEach(t=>t.addEventListener('click',()=>select(+t.dataset.i)));
+}
+
+/* ---- main chart ---- */
+const SVG='http://www.w3.org/2000/svg';
+function renderChart(){
+  const d=DATA[active];
+  const svg=document.getElementById('chart');
+  svg.innerHTML='';
+  const W=720,H=300, L=44,R=18,T=22,B=34;
+  const iw=W-L-R, ih=H-T-B;
+  const vals=d.values;
+  const scaleVals = d.sub ? vals.concat(...d.sub.map(s=>s.values)) : vals;
+  const mx=Math.max(...scaleVals), mn=Math.min(...scaleVals);
+  const top=mx+Math.max(1,(mx-mn)*0.18), bot=Math.max(0,mn-Math.max(1,(mx-mn)*0.18));
+  const rng=(top-bot)||1;
+  const X=i=>L+i*iw/(vals.length-1);
+  const Y=v=>T+ih-((v-bot)/rng)*ih;
+
+  // gridlines + y labels
+  const ticks=4;
+  for(let t=0;t<=ticks;t++){
+    const val=bot+(rng)*t/ticks, yy=Y(val);
+    const ln=document.createElementNS(SVG,'line');
+    ln.setAttribute('x1',L);ln.setAttribute('x2',W-R);ln.setAttribute('y1',yy);ln.setAttribute('y2',yy);
+    ln.setAttribute('stroke','var(--grid)');ln.setAttribute('stroke-width','1');
+    svg.appendChild(ln);
+    const tx=document.createElementNS(SVG,'text');
+    tx.setAttribute('x',L-8);tx.setAttribute('y',yy+4);tx.setAttribute('text-anchor','end');
+    tx.setAttribute('fill','var(--txt-dim)');tx.setAttribute('font-size','11');
+    tx.setAttribute('font-family',"'IBM Plex Mono',monospace");
+    tx.textContent=fmt(Math.round(val));
+    svg.appendChild(tx);
+  }
+  // x labels
+  MONTHS.forEach((m,i)=>{
+    const tx=document.createElementNS(SVG,'text');
+    tx.setAttribute('x',X(i));tx.setAttribute('y',H-12);tx.setAttribute('text-anchor','middle');
+    tx.setAttribute('fill', i===focus?'var(--cyan)':'var(--txt-dim)');
+    tx.setAttribute('font-size','11');tx.setAttribute('font-family',"'IBM Plex Mono',monospace");
+    tx.setAttribute('font-weight', i===focus?'600':'400');
+    tx.textContent=m;
+    svg.appendChild(tx);
+  });
+  // average reference
+  const av=avg(vals), avY=Y(av);
+  const avL=document.createElementNS(SVG,'line');
+  avL.setAttribute('x1',L);avL.setAttribute('x2',W-R);avL.setAttribute('y1',avY);avL.setAttribute('y2',avY);
+  avL.setAttribute('stroke',d.accent);avL.setAttribute('stroke-width','1');
+  avL.setAttribute('stroke-dasharray','2 5');avL.setAttribute('opacity','.5');
+  svg.appendChild(avL);
+
+  // area + line
+  const gid='cg'+active;
+  const defs=document.createElementNS(SVG,'defs');
+  defs.innerHTML=`<linearGradient id="${gid}" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0" stop-color="${d.accent}" stop-opacity=".26"/>
+    <stop offset="1" stop-color="${d.accent}" stop-opacity="0"/></linearGradient>`;
+  svg.appendChild(defs);
+
+  const pts=vals.map((v,i)=>`${X(i)},${Y(v)}`).join(' ');
+  const area=document.createElementNS(SVG,'polygon');
+  area.setAttribute('points',`${L},${T+ih} ${pts} ${W-R},${T+ih}`);
+  area.setAttribute('fill',`url(#${gid})`);
+  svg.appendChild(area);
+
+  const line=document.createElementNS(SVG,'polyline');
+  line.setAttribute('points',pts);line.setAttribute('fill','none');
+  line.setAttribute('stroke',d.accent);line.setAttribute('stroke-width','2.4');
+  line.setAttribute('stroke-linejoin','round');line.setAttribute('stroke-linecap','round');
+  const len=line.getTotalLength?400:0;
+  svg.appendChild(line);
+  try{const L2=line.getTotalLength();line.style.strokeDasharray=L2;line.style.strokeDashoffset=L2;
+    line.animate([{strokeDashoffset:L2},{strokeDashoffset:0}],{duration:650,easing:'ease-out',fill:'forwards'});
+  }catch(e){}
+
+  // subseries (Avalon / Zedi) for composite metric
+  if(d.sub){
+    d.sub.forEach(s=>{
+      const sp=s.values.map((v,i)=>`${X(i)},${Y(v)}`).join(' ');
+      const sl=document.createElementNS(SVG,'polyline');
+      sl.setAttribute('points',sp);sl.setAttribute('fill','none');
+      sl.setAttribute('stroke',s.color);sl.setAttribute('stroke-width','1.6');
+      sl.setAttribute('stroke-linejoin','round');sl.setAttribute('stroke-linecap','round');
+      sl.setAttribute('opacity','.9');sl.setAttribute('stroke-dasharray','4 3');
+      svg.appendChild(sl);
+      s.values.forEach((v,i)=>{
+        const sc=document.createElementNS(SVG,'circle');
+        sc.setAttribute('cx',X(i));sc.setAttribute('cy',Y(v));sc.setAttribute('r','2.2');
+        sc.setAttribute('fill',s.color);
+        svg.appendChild(sc);
+      });
+    });
+    // inline legend, top-left
+    const legend=[{name:d.name,color:d.accent,dash:false},...d.sub.map(s=>({name:s.name,color:s.color,dash:true}))];
+    let lx=L+4;
+    legend.forEach(item=>{
+      const g=document.createElementNS(SVG,'g');
+      const rect=document.createElementNS(SVG,'rect');
+      rect.setAttribute('x',lx);rect.setAttribute('y',T-14);rect.setAttribute('width',14);rect.setAttribute('height',3);
+      rect.setAttribute('rx','1.5');rect.setAttribute('fill',item.color);rect.setAttribute('opacity',item.dash?'.9':'1');
+      g.appendChild(rect);
+      const tx=document.createElementNS(SVG,'text');
+      tx.setAttribute('x',lx+19);tx.setAttribute('y',T-10);tx.setAttribute('fill','var(--txt-mid)');
+      tx.setAttribute('font-size','10.5');tx.setAttribute('font-family',"'IBM Plex Sans',sans-serif");
+      tx.textContent=item.name;
+      g.appendChild(tx);
+      svg.appendChild(g);
+      lx += 19 + item.name.length*6.4 + 16;
+    });
+  }
+
+  // points + hover
+  const tip=document.getElementById('tip');
+  vals.forEach((v,i)=>{
+    const c=document.createElementNS(SVG,'circle');
+    c.setAttribute('cx',X(i));c.setAttribute('cy',Y(v));
+    c.setAttribute('r', i===focus?4.5:3.4);
+    c.setAttribute('fill', i===focus?d.accent:'var(--bg)');
+    c.setAttribute('stroke',d.accent);c.setAttribute('stroke-width','2');
+    svg.appendChild(c);
+    // hit area
+    const hit=document.createElementNS(SVG,'rect');
+    hit.setAttribute('x',X(i)-24);hit.setAttribute('y',T);hit.setAttribute('width',48);hit.setAttribute('height',ih);
+    hit.setAttribute('fill','transparent');hit.style.cursor='crosshair';
+    hit.addEventListener('mouseenter',()=>{
+      c.setAttribute('r',6);
+      const wrap=svg.getBoundingClientRect();
+      const px=(X(i)/W)*wrap.width, py=(Y(v)/H)*wrap.height;
+      tip.style.left=px+'px';tip.style.top=py+'px';tip.style.opacity=1;
+      document.getElementById('tipM').textContent=MONTHS[i]+' 2026';
+      document.getElementById('tipV').textContent=fmt(v)+' '+d.unit;
+      document.getElementById('tipV').style.color=d.accent;
+    });
+    hit.addEventListener('mouseleave',()=>{c.setAttribute('r',i===focus?4.5:3.4);tip.style.opacity=0;});
+    svg.appendChild(hit);
+  });
+
+  // header stats
+  document.getElementById('chTitle').textContent=d.name;
+  document.getElementById('chUnit').textContent=d.unit+' · 6-month channel';
+  document.getElementById('chSwatch').style.background=d.accent;
+  document.getElementById('chAvg').textContent=fmt(Math.round(av*10)/10);
+  document.getElementById('chPeak').textContent=fmt(mx);
+  document.getElementById('chYtd').textContent=fmt(sum(vals));
+}
+
+/* ---- summary table ---- */
+function renderSummary(){
+  document.getElementById('sumMonthHdr').textContent=MONTHS[focus];
+  const body=document.getElementById('sumBody');
+  body.innerHTML=DATA.map((d,i)=>{
+    const peakV=Math.max(...d.values), peakM=MONTHS[d.values.indexOf(peakV)];
+    return `<tr data-i="${i}" class="${i===active?'active':''}">
+      <td><span class="name"><span class="cdot" style="background:${d.accent}"></span>${d.name}</span></td>
+      <td class="mono jun">${fmt(d.values[focus])}</td>
+      <td class="mono">${fmt(Math.round(avg(d.values)*10)/10)}</td>
+      <td class="mono">${fmt(sum(d.values))}</td>
+      <td class="mono peak">${peakM} · ${fmt(peakV)}</td>
+    </tr>`;
+  }).join('');
+  body.querySelectorAll('tr').forEach(r=>r.addEventListener('click',()=>select(+r.dataset.i)));
+}
+
+function select(i){
+  active=i;
+  document.querySelectorAll('.tile').forEach(t=>t.classList.toggle('active',+t.dataset.i===i));
+  document.querySelectorAll('#sumBody tr').forEach(r=>r.classList.toggle('active',+r.dataset.i===i));
+  renderChart();
+}
+
+function rerenderAll(){
+  renderMonthSel(); renderTiles(); renderChart(); renderSummary();
+}
+
+/* ====== BACKEND: LOAD ====== */
+function setSource(online){
+  document.getElementById('srcDot').classList.toggle('online',online);
+  document.getElementById('srcLabel').textContent = online ? 'Live · Google Sheet' : 'Local data';
+}
+async function loadRemote(){
+  if(!API_URL){ setSource(false); return; }
+  try{
+    const res = await fetch(API_URL, {method:'GET'});
+    const data = await res.json();
+    applyRemote(data);
+    setSource(true);
+  }catch(e){ setSource(false); console.warn('Load gagal, pakai data lokal:',e); }
+}
+function applyRemote(data){
+  if(!data || !data.months) return;
+  // sinkronkan panjang bulan
+  MONTHS.length=0; data.months.forEach(m=>MONTHS.push(m));
+  // KPI biasa
+  data.kpi.forEach(k=>{
+    const d = DATA.find(x=>x.sheet===k.name);
+    if(d){ d.values.length=0; k.values.forEach(v=>d.values.push(v)); }
+  });
+  // wells
+  if(data.wells){
+    WELLS.avalon.length=0; data.wells.avalon.forEach(v=>WELLS.avalon.push(v));
+    WELLS.zedi.length=0;   data.wells.zedi.forEach(v=>WELLS.zedi.push(v));
+    WELL_TOTAL.length=0;   WELLS.avalon.forEach((a,i)=>WELL_TOTAL.push(a+(WELLS.zedi[i]||0)));
+  }
+  focus = MONTHS.length-1;
+  rerenderAll();
+}
+
+/* ====== BACKEND: FORM ====== */
+const FORM_FIELDS = [
+  {sheet:'Remote Operation', label:'Remote Operation', color:'#33d6d0'},
+  {sheet:'Quest Reporting', label:'Quest Reporting', color:'#8f9bff'},
+  {sheet:'Client Observation Report', label:'Client Observation Report', color:'#f6b13c'},
+  {sheet:'Milleage', label:'Mileage', color:'#3ddc97'},
+  {sheet:'Number Of Hi Priority Wells Monitoring', label:'Hi-Priority Wells', color:'#fb6d84'},
+  {sheet:'Avalon', label:'Avalon (well)', color:'#3b9dff'},
+  {sheet:'Zedi', label:'Zedi (well)', color:'#c77dff'},
+];
+function valFor(sheetLabel, mi){
+  if(sheetLabel==='Avalon') return WELLS.avalon[mi]??'';
+  if(sheetLabel==='Zedi')   return WELLS.zedi[mi]??'';
+  const d=DATA.find(x=>x.sheet===sheetLabel);
+  return d?(d.values[mi]??''):'';
+}
+function buildMonthOptions(){
+  const sel=document.getElementById('fMonth');
+  const opts = MONTHS.map((m,i)=>`<option value="${i}">${m} 2026</option>`);
+  // opsi tambah bulan berikutnya
+  const nextIdx = MONTH_SHORT_ALL.indexOf(MONTHS[MONTHS.length-1])+1;
+  if(nextIdx>0 && nextIdx<12) opts.push(`<option value="new">+ ${MONTH_SHORT_ALL[nextIdx]} 2026 (bulan baru)</option>`);
+  sel.innerHTML=opts.join('');
+  sel.value=String(focus);
+}
+function buildFields(){
+  const mSel=document.getElementById('fMonth').value;
+  const mi = mSel==='new' ? -1 : +mSel;
+  document.getElementById('fFields').innerHTML = FORM_FIELDS.map(f=>
+    `<div class="row"><label><i style="background:${f.color}"></i>${f.label}</label>
+      <input type="number" step="any" data-sheet="${f.sheet}" value="${mi<0?'':valFor(f.sheet,mi)}" placeholder="0"></div>`).join('');
+}
+function openForm(){
+  buildMonthOptions(); buildFields();
+  document.getElementById('fNote').textContent = API_URL
+    ? 'Tersimpan ke Google Sheet lewat backend.'
+    : 'Mode lokal: perubahan tampil di dashboard tapi belum tersimpan permanen (isi API_URL untuk menyimpan).';
+  document.getElementById('modal').hidden=false;
+}
+function closeForm(){ document.getElementById('modal').hidden=true; }
+
+async function saveForm(){
+  const mSel=document.getElementById('fMonth').value;
+  let monthShort, addNew=false;
+  if(mSel==='new'){
+    const nextIdx=MONTH_SHORT_ALL.indexOf(MONTHS[MONTHS.length-1])+1;
+    monthShort=MONTH_SHORT_ALL[nextIdx]; addNew=true;
+  }else{ monthShort=MONTHS[+mSel]; }
+
+  const values={};
+  document.querySelectorAll('#fFields input').forEach(inp=>{
+    const v=inp.value===''?0:Number(inp.value);
+    values[inp.dataset.sheet]=isNaN(v)?0:v;
+  });
+
+  applyInput(monthShort, values, addNew);   // update tampilan lokal dulu
+
+  if(API_URL){
+    const btn=document.getElementById('saveForm'); btn.disabled=true; btn.textContent='Menyimpan…';
+    try{
+      const res=await fetch(API_URL,{
+        method:'POST',
+        headers:{'Content-Type':'text/plain;charset=utf-8'}, // hindari CORS preflight
+        body:JSON.stringify({month:MONTH_FULL_ALL[MONTH_SHORT_ALL.indexOf(monthShort)], values})
+      });
+      const out=await res.json();
+      if(out && out.data) applyRemote(out.data);
+      setSource(true);
+    }catch(e){ alert('Gagal menyimpan ke backend: '+e+'\nPerubahan tetap tampil secara lokal.'); }
+    btn.disabled=false; btn.textContent='Simpan';
+  }
+  closeForm();
+}
+
+function applyInput(monthShort, values, addNew){
+  let mi=MONTHS.indexOf(monthShort);
+  if(mi<0 || addNew){
+    if(mi<0){ MONTHS.push(monthShort); mi=MONTHS.length-1;
+      DATA.forEach(d=>{ if(!d.composite) while(d.values.length<MONTHS.length) d.values.push(0); });
+      while(WELLS.avalon.length<MONTHS.length) WELLS.avalon.push(0);
+      while(WELLS.zedi.length<MONTHS.length) WELLS.zedi.push(0);
+      while(WELL_TOTAL.length<MONTHS.length) WELL_TOTAL.push(0);
+    }
+  }
+  Object.keys(values).forEach(sheetLabel=>{
+    const v=values[sheetLabel];
+    if(sheetLabel==='Avalon') WELLS.avalon[mi]=v;
+    else if(sheetLabel==='Zedi') WELLS.zedi[mi]=v;
+    else{ const d=DATA.find(x=>x.sheet===sheetLabel); if(d) d.values[mi]=v; }
+  });
+  WELL_TOTAL[mi]=(WELLS.avalon[mi]||0)+(WELLS.zedi[mi]||0);
+  focus=mi;
+  rerenderAll();
+}
+
+/* form event wiring */
+document.getElementById('openForm').addEventListener('click',openForm);
+document.getElementById('closeForm').addEventListener('click',closeForm);
+document.getElementById('cancelForm').addEventListener('click',closeForm);
+document.getElementById('saveForm').addEventListener('click',saveForm);
+document.getElementById('fMonth').addEventListener('change',buildFields);
+document.getElementById('modal').addEventListener('click',e=>{ if(e.target.id==='modal') closeForm(); });
+
+renderMonthSel();
+renderTiles();
+renderChart();
+renderSummary();
+loadRemote();
+window.addEventListener('resize',renderChart);
+document.getElementById('genStamp').textContent='Generated '+new Date().toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});
+</script>
+</body>
+</html>
