@@ -166,6 +166,21 @@
   .btn-go{font-family:inherit;font-size:12.5px;font-weight:600;padding:9px 18px;border-radius:8px;border:none;background:var(--teal);color:#06222a;cursor:pointer}
   .btn-go:hover{filter:brightness(1.08)}
   .btn-go:disabled{opacity:.5;cursor:default}
+  .manage{margin-top:18px;padding-top:16px;border-top:1px solid var(--line-soft)}
+  .manage-h{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--txt-dim);margin-bottom:10px}
+  .mlist{display:flex;flex-direction:column;gap:7px;margin-bottom:12px}
+  .mrow{display:flex;align-items:center;gap:10px;background:var(--bg-2);border:1px solid var(--line);border-radius:8px;padding:7px 10px}
+  .mrow i{width:20px;height:20px;border-radius:6px;flex:none;display:grid;place-items:center;font-size:10px;font-weight:600;color:#06222a;font-family:'IBM Plex Mono',monospace}
+  .mrow .nm{flex:1;font-size:12.5px;color:var(--txt)}
+  .mrow .role{font-size:10.5px;color:var(--txt-dim);letter-spacing:.03em}
+  .mrow .del{background:none;border:none;color:var(--txt-dim);cursor:pointer;font-size:15px;line-height:1;padding:2px 4px;border-radius:5px}
+  .mrow .del:hover{color:var(--rose);background:rgba(251,109,132,.12)}
+  .addrow{display:flex;gap:8px}
+  .addrow input{flex:1;font-family:'IBM Plex Sans';font-size:12.5px;color:var(--txt);background:var(--bg-2);border:1px solid var(--line);border-radius:8px;padding:9px 11px}
+  .addrow input:focus{outline:none;border-color:var(--teal)}
+  .btn-add{font-family:inherit;font-size:12px;font-weight:600;padding:0 14px;border-radius:8px;border:1px solid var(--teal);background:rgba(51,214,208,.12);color:var(--teal);cursor:pointer;white-space:nowrap}
+  .btn-add:hover{background:rgba(51,214,208,.2)}
+  .btn-add:disabled{opacity:.5;cursor:default}
 </style>
 </head>
 <body>
@@ -200,6 +215,14 @@
     <div class="modal-body">
       <label class="fld"><span>Bulan</span><select id="fMonth"></select></label>
       <div class="fgrid" id="fFields"></div>
+      <div class="manage">
+        <div class="manage-h">Kelola personel</div>
+        <div id="mList" class="mlist"></div>
+        <div class="addrow">
+          <input type="text" id="mNewName" placeholder="Nama personel baru…" autocomplete="off">
+          <button class="btn-add" id="mAdd">+ Tambah</button>
+        </div>
+      </div>
       <p class="fnote" id="fNote"></p>
     </div>
     <div class="modal-foot">
@@ -253,16 +276,18 @@
 
 <script>
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun'];
+const SPECIALISTS = ['Deryl Wicaksono','Desy Normasari'];   // dapat role "ALSC Specialist"
+const roleFor = name => SPECIALISTS.indexOf(name) >= 0 ? 'ALSC Specialist' : 'Field Personnel';
 const PEOPLE = [
-  {name:'Deryl Wicaksono', role:'Field Personnel', short:'DW', values:[22,20,20,22,20,22], color:'#33d6d0'},
-  {name:'Desy Normasari',  role:'Field Personnel', short:'DN', values:[20,20,20,22,23,20], color:'#8f9bff'},
+  {name:'Deryl Wicaksono', role:'ALSC Specialist', short:'DW', values:[22,20,20,22,20,22], color:'#33d6d0'},
+  {name:'Desy Normasari',  role:'ALSC Specialist', short:'DN', values:[20,20,20,22,23,20], color:'#8f9bff'},
   {name:'Fadli Mukhtarif', role:'Field Personnel', short:'FM', values:[0,0,0,1,3,2],       color:'#f6b13c'},
 ];
 
 /* ====== BACKEND CONFIG ======
    Tempel URL Web App (…/exec) — dashboard ini otomatis memanggil ?sheet=dayon.
    Biarkan '' untuk mode lokal (form jalan tapi belum tersimpan permanen). */
-const API_URL = 'https://script.google.com/macros/s/AKfycbw_2uJW4sE6nyIeZlIl7z9Q3xAQzKCP6Vir5GtQTLOfKK6lxGu4PMa9ZHQq1SVV9kHOaA/exec';
+const API_URL = '';
 const PALETTE = ['#33d6d0','#8f9bff','#f6b13c','#3ddc97','#fb6d84','#5ec8ff','#c77dff','#9be15d'];
 const MONTH_FULL_ALL  = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 const MONTH_SHORT_ALL = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
@@ -481,7 +506,8 @@ function applyRemote(data){
   const keep=[];
   data.people.forEach((p,i)=>{
     let d = PEOPLE.find(x=>x.name===p.name);
-    if(!d){ d={name:p.name, role:'Field Personnel', short:initials(p.name), values:[], color:PALETTE[i%PALETTE.length]}; PEOPLE.push(d); }
+    if(!d){ d={name:p.name, role:roleFor(p.name), short:initials(p.name), values:[], color:PALETTE[i%PALETTE.length]}; PEOPLE.push(d); }
+    d.role = roleFor(p.name);
     d.values.length=0; p.values.forEach(v=>d.values.push(v));
     keep.push(d);
   });
@@ -509,13 +535,63 @@ function buildFields(){
       <input type="number" step="1" min="0" data-name="${p.name}" value="${mi<0?'':valFor(p.name,mi)}" placeholder="0"></div>`).join('');
 }
 function openForm(){
-  buildMonthOptions(); buildFields();
+  buildMonthOptions(); buildFields(); renderManageList();
   document.getElementById('fNote').textContent = API_URL
-    ? 'Tersimpan ke tab DayOnCount lewat backend. (Menambah personel baru dilakukan langsung di Sheet.)'
+    ? 'Nilai bulanan & tambah/hapus personel tersimpan ke tab DayOnCount lewat backend.'
     : 'Mode lokal: tampil di dashboard tapi belum tersimpan permanen (isi API_URL untuk menyimpan).';
   document.getElementById('modal').hidden=false;
 }
 function closeForm(){ document.getElementById('modal').hidden=true; }
+
+/* --- kelola personel --- */
+function renderManageList(){
+  document.getElementById('mList').innerHTML = PEOPLE.map(p=>
+    `<div class="mrow"><i style="background:${p.color}">${p.short}</i>
+      <span class="nm">${p.name}</span><span class="role">${p.role}</span>
+      <button class="del" data-name="${p.name}" title="Hapus">×</button></div>`).join('');
+  document.querySelectorAll('#mList .del').forEach(b=>
+    b.addEventListener('click',()=>deletePersonAction(b.dataset.name)));
+}
+async function addPersonAction(){
+  const inp=document.getElementById('mNewName');
+  const name=inp.value.trim().replace(/\s+/g,' ');
+  if(!name) return;
+  if(PEOPLE.some(p=>p.name.toLowerCase()===name.toLowerCase())){ alert('Nama sudah ada: '+name); return; }
+  // lokal dulu
+  PEOPLE.push({name, role:roleFor(name), short:initials(name),
+    values:MONTHS.map(()=>0), color:PALETTE[PEOPLE.length%PALETTE.length]});
+  inp.value='';
+  renderAll(); buildFields(); renderManageList();
+  if(API_URL){
+    const btn=document.getElementById('mAdd'); btn.disabled=true; btn.textContent='…';
+    try{
+      const res=await fetch(API_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},
+        body:JSON.stringify({sheet:'dayon', action:'addPerson', name, values:{}})});
+      const out=await res.json();
+      if(out && out.data) applyRemote(out.data);
+      if(out && out.ok===false) alert('Backend: '+out.error);
+    }catch(e){ alert('Gagal simpan ke backend: '+e+'\nTetap tampil lokal.'); }
+    btn.disabled=false; btn.textContent='+ Tambah';
+    buildFields(); renderManageList();
+  }
+}
+async function deletePersonAction(name){
+  if(!confirm('Hapus personel "'+name+'"? Ini juga menghapus barisnya di Google Sheet.')) return;
+  const i=PEOPLE.findIndex(p=>p.name===name);
+  if(i>=0) PEOPLE.splice(i,1);
+  if(sel!==null && sel>=PEOPLE.length) sel=null;
+  renderAll(); buildFields(); renderManageList();
+  if(API_URL){
+    try{
+      const res=await fetch(API_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},
+        body:JSON.stringify({sheet:'dayon', action:'deletePerson', name})});
+      const out=await res.json();
+      if(out && out.data) applyRemote(out.data);
+      if(out && out.ok===false) alert('Backend: '+out.error);
+    }catch(e){ alert('Gagal hapus di backend: '+e+'\nTetap terhapus lokal.'); }
+    buildFields(); renderManageList();
+  }
+}
 async function saveForm(){
   const v=document.getElementById('fMonth').value;
   let monthShort, addNew=false;
@@ -560,6 +636,8 @@ document.getElementById('closeForm').addEventListener('click',closeForm);
 document.getElementById('cancelForm').addEventListener('click',closeForm);
 document.getElementById('saveForm').addEventListener('click',saveForm);
 document.getElementById('fMonth').addEventListener('change',buildFields);
+document.getElementById('mAdd').addEventListener('click',addPersonAction);
+document.getElementById('mNewName').addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); addPersonAction(); } });
 document.getElementById('modal').addEventListener('click',e=>{ if(e.target.id==='modal') closeForm(); });
 
 function renderAll(){recompute();renderMonthSel();renderStrip();renderTiles();renderLegend();renderChart();renderSummary();renderHeat();}
