@@ -168,7 +168,17 @@
   .tile .delta.down{color:var(--rose)}
   .tile .delta.flat{color:var(--txt-dim)}
   .tile .delta .vs{color:var(--txt-dim);font-weight:400}
-  .tile .spark{margin-top:10px;height:34px;width:100%;display:block}
+  .tile .spark{margin-top:0;height:34px;width:100%;display:block}
+  .tile .foot{display:flex;align-items:flex-end;gap:10px;margin-top:10px}
+  .tile .foot .spark{flex:1;min-width:0}
+  .mini{
+    flex:none;background:rgba(8,14,22,.6);border:1px solid var(--line);
+    border-radius:9px;padding:6px 11px 7px;text-align:right;min-width:64px;
+  }
+  .mini .mk{font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--txt-dim)}
+  .mini .mv{font-family:'IBM Plex Mono',monospace;font-size:14.5px;font-weight:600;color:var(--txt);margin-top:2px;line-height:1.1}
+  .mini .mv.pos{color:var(--emerald)}
+  .mini .mv.neg{color:var(--rose)}
 
   /* composite (Total Well) tile */
   .tile .stackbar{
@@ -177,7 +187,7 @@
   }
   .tile .stackbar span{height:100%;transition:width .4s ease}
   .tile .breakdown{
-    display:flex;justify-content:space-between;gap:8px;margin-top:11px;
+    display:flex;justify-content:space-between;align-items:flex-end;gap:8px;margin-top:11px;flex-wrap:wrap;
   }
   .tile .breakdown .bk{
     display:flex;align-items:center;gap:7px;font-size:12px;color:var(--txt-mid);
@@ -351,12 +361,12 @@ const WELLS = {
 const WELL_TOTAL = WELLS.avalon.map((a,i)=>a+WELLS.zedi[i]); // 110,112,114,116,116,118
 
 const DATA = [
-  {name:'Remote Operation',          unit:'ops',     values:[43,30,29,52,28,40], accent:'#33d6d0', sheet:'Remote Operation'},
-  {name:'Quest Reporting',           unit:'reports', values:[12,7,6,5,5,5],      accent:'#8f9bff', sheet:'Quest Reporting'},
-  {name:'Client Observation Report', unit:'reports', values:[3,3,3,2,4,12],      accent:'#f6b13c', sheet:'Client Observation Report'},
-  {name:'Mileage',                   unit:'km',      values:[410,280,264,448,233,402], accent:'#3ddc97', sheet:'Milleage'},
-  {name:'Hi-Priority Wells Monitoring',unit:'wells', values:[4,4,4,4,6,5],       accent:'#fb6d84', sheet:'Number Of Hi Priority Wells Monitoring'},
-  {name:'Total Well',                unit:'wells',   values:WELL_TOTAL,          accent:'#5ec8ff',
+  {name:'Remote Operation',          unit:'ops',     values:[43,30,29,52,28,40], accent:'#33d6d0', sheet:'Remote Operation', kind:'flow'},
+  {name:'Quest Reporting',           unit:'reports', values:[12,7,6,5,5,5],      accent:'#8f9bff', sheet:'Quest Reporting', kind:'flow'},
+  {name:'Client Observation Report', unit:'reports', values:[3,3,3,2,4,12],      accent:'#f6b13c', sheet:'Client Observation Report', kind:'flow'},
+  {name:'Mileage',                   unit:'km',      values:[410,280,264,448,233,402], accent:'#3ddc97', sheet:'Milleage', kind:'flow'},
+  {name:'Hi-Priority Wells Monitoring',unit:'wells', values:[4,4,4,4,6,5],       accent:'#fb6d84', sheet:'Number Of Hi Priority Wells Monitoring', kind:'stock'},
+  {name:'Total Well',                unit:'wells',   values:WELL_TOTAL,          accent:'#5ec8ff', kind:'stock',
     composite:true,
     sub:[
       {name:'Avalon', values:WELLS.avalon, color:'#3b9dff', sheet:'Avalon'},
@@ -425,7 +435,20 @@ function compositeBody(d, focus){
     <div class="breakdown">
       <span class="bk"><i style="background:${a.color}"></i>${a.name} <b>${fmt(av)}</b><span class="u">${ap}%</span></span>
       <span class="bk"><i style="background:${z.color}"></i>${z.name} <b>${fmt(zv)}</b><span class="u">${zp}%</span></span>
+      ${miniTile(d,focus)}
     </div>`;
+}
+
+/* ---- mini-tile (YTD) : flow = jumlah kumulatif s/d bulan terpilih, stock = delta sejak Jan ---- */
+function miniTile(d, focus){
+  if(d.kind==='stock'){
+    const diff = (d.values[focus]??0) - (d.values[0]??0);
+    const cls = diff>0?' pos':diff<0?' neg':'';
+    const txt = (diff>0?'+':'')+fmt(diff);
+    return `<div class="mini"><div class="mk">Δ YTD</div><div class="mv${cls}">${txt}</div></div>`;
+  }
+  const ytd = sum(d.values.slice(0, focus+1));
+  return `<div class="mini"><div class="mk">YTD</div><div class="mv">${fmt(ytd)}</div></div>`;
 }
 
 /* ---- KPI tiles ---- */
@@ -450,7 +473,9 @@ function renderTiles(){
       <div class="label">${d.name}</div>
       <div class="val"><span class="num mono">${fmt(cur)}</span><span class="unit">${d.unit}</span></div>
       ${deltaHtml}
-      ${d.composite ? compositeBody(d,focus) : sparkline(d.values,d.accent,focus)}
+      ${d.composite
+        ? compositeBody(d,focus)
+        : `<div class="foot">${sparkline(d.values,d.accent,focus)}${miniTile(d,focus)}</div>`}
     </button>`;
   }).join('');
   el.querySelectorAll('.tile').forEach(t=>t.addEventListener('click',()=>select(+t.dataset.i)));
